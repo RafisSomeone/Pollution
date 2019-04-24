@@ -28,7 +28,7 @@ sameLocation(Monitor, Location) ->
   lists:any(fun(Station) -> Station#station.position == Location end, maps:values(Monitor)).
 
 
-addStation(Monitor, Name, Location) ->
+addStation(Name, Location,Monitor) ->
   case maps:is_key(Name, Monitor) or sameLocation(Monitor, Location) of
     true -> {error, "There is already another station with these arguments"};
     _ ->
@@ -49,7 +49,7 @@ isStation(Monitor, Name) ->
       [] -> {error, "There is no station with this name"};
       [Station] -> Station
     end.
-addValue(Monitor,Searched,Date,Type,Value) ->
+addValue(Searched,Date,Type,Value,Monitor) ->
   case isStation(Monitor,Searched) of
     {error,Text} -> {error,Text};
     Station -> saveValue(Monitor,Station#station.name,Date,Type,Value,Station)

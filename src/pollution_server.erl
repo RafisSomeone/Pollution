@@ -8,13 +8,12 @@
 %%%-------------------------------------------------------------------
 -module(pollution_server).
 -author("rafal").
-
 %% API
--export([start/0, stop/0, init/0,addStation/2, addValue/4, removeValue/3, getOneValue/3, getStationMean/2, getDailyMean/2, getOverLimit/3, print/0,getNorms/0]).
+-export([start/0, stop/0,crash/0, init/0,addStation/2, addValue/4, removeValue/3, getOneValue/3, getStationMean/2, getDailyMean/2, getOverLimit/3, print/0,getNorms/0]).
 
 
 start() ->
-  register(pollutionServer, spawn(pollution_server, init, [])).
+  register(pollutionServer, spawn_link(pollution_server, init, [])).
 
 init() ->
   loop(pollution:createMonitor()).
@@ -65,19 +64,18 @@ loop(Monitor) ->
       loop(Monitor);
 
     {request, Pid, stop} ->
-      Pid ! {reply, ok}
+      Pid ! {reply, ok};
+    {request, Pid ,crash} ->
+      Pid ! {reply,1/0},
+      loop(Monitor)
   end.
 
-
-process(Result, Pid, Monitor) ->
-  case Result of
-    {error, Text} ->
-      Pid ! {reply, Text},
-      loop(Monitor);
-    _ ->
-      Pid ! {reply, ok},
-      loop(Result)
-  end.
+process({error, Text}, Pid, Monitor) ->
+  Pid ! {reply, Text},
+  loop(Monitor);
+process(Result, Pid, _) ->
+  Pid ! {reply, ok},
+  loop(Result).
 
 call(Command, Args) ->
   pollutionServer ! {request, self(), Command, Args},
@@ -92,6 +90,8 @@ print() ->
     {reply, Reply} -> Reply
   end.
 
+
+
 addStation(Name, Location) -> call(addStation, {Name, Location}).
 addValue(Searched,Date,Type,Value) -> call(addValue, {Searched,Date,Type,Value}).
 removeValue(Searched,Date,Type) -> call(removeValue, {Searched,Date,Type}).
@@ -100,3 +100,4 @@ getStationMean(Searched,Type) -> call(getStationMean, {Searched,Type}).
 getDailyMean(Date,Type) -> call(getDailyMean, {Date,Type}).
 getOverLimit(Hour,Type,Norms) -> call(getOverLimit, {Hour,Type,Norms}).
 getNorms() -> call(getNorms,0).
+crash() -> pollutionServer ! {request,self(),crash}.

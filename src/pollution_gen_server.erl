@@ -12,10 +12,11 @@
 
 %% API
 -export([start/0,init/1, handle_call/3, handle_cast/2]).
--export([addStation/2,addValue/4,removeValue/3,stop/0,getNorms/0,getOneValue/3,getOverLimit/3,getDailyMean/2,getStationMean/2,print/0]).
+-export([addStation/2,addValue/4,removeValue/3,stop/0,getNorms/0,getOneValue/3,getOverLimit/3,getDailyMean/2,getStationMean/2,print/0,crash/0,terminate/2]).
 start() ->
-  Monitor = pollution:createMonitor(),
-  gen_server:start_link({local,pollution_gen_server},?MODULE,Monitor,[]).
+  [{lastState, State}] = ets:lookup(backup, lastState),
+  gen_server:start_link({local,pollution_gen_server},?MODULE,State,[]).
+
 init(Monitor) ->
   {ok, Monitor}.
 
@@ -57,9 +58,12 @@ getOverLimit(Hour,Type,Norms)->
   gen_server:call(?MODULE,{getOverLimit,Hour,Type,Norms}).
 print() ->
   gen_server:call(?MODULE,print).
+crash() ->
+  gen_server:cast(?MODULE,crash).
 
 terminate(Reason, Monitor) ->
-  io:format("Server: exit with monitor ~p~n",[Monitor]),
+  ets:insert(backup, [{lastState, Monitor}]),
+  io:format("Data saved~n"),
   Reason.
 
 
@@ -85,6 +89,10 @@ handle_call({getOverLimit,Hour,Type,Norms},_From, Monitor) ->
 
 handle_call(print,_From,Monitor) ->
   process(reply,Monitor,Monitor).
+
+handle_cast({crash},Monitor) ->
+  Result = 1/0,
+  process(noreplay,Result,Monitor);
 
 handle_cast({addStation,Name,Location}, Monitor) ->
   Result = pollution:addStation(Name, Location,Monitor),
